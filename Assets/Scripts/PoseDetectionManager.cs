@@ -1,4 +1,5 @@
 using UnityEngine;
+using Mediapipe.Tasks.Components.Containers;
 using Mediapipe.Tasks.Vision.PoseLandmarker;
 using Mediapipe.Tasks.Core;
 using Mediapipe.Tasks.Vision.Core;
@@ -7,22 +8,52 @@ using System.Collections;
 
 public class PoseDetectionManager : MonoBehaviour
 {
+    public enum PoseLandmarkIndex
+    {
+        Nose = 0,
+        LeftShoulder = 11,
+        RightShoulder = 12,
+        LeftElbow = 13,
+        RightElbow = 14,
+        LeftWrist = 15,
+        RightWrist = 16,
+        LeftHip = 23,
+        RightHip = 24,
+        LeftKnee = 25,
+        RightKnee = 26,
+        LeftAnkle = 27,
+        RightAnkle = 28,
+    }
+
+    private const int PoseLandmarkCount = 33;
+
     public static PoseDetectionManager Instance;
 
-    // Latest normalized landmark positions (0-1 range)
-    public static Vector2 Nose        = Vector2.zero;
-    public static Vector2 RightWrist  = Vector2.zero;
-    public static Vector2 LeftShoulder  = Vector2.zero;
-    public static Vector2 RightShoulder = Vector2.zero;
-    public static Vector2 LeftHip      = Vector2.zero;
-    public static Vector2 RightHip     = Vector2.zero;
-    public static bool    IsTracking    = false;
+    public static readonly Vector2[] CurrentLandmarks = new Vector2[PoseLandmarkCount];
+    public static readonly float[] CurrentVisibility = new float[PoseLandmarkCount];
+    public static readonly float[] CurrentPresence = new float[PoseLandmarkCount];
+    public static bool IsTracking = false;
+    public static bool InitializationFailed { get; private set; }
+    public static string StatusMessage { get; private set; } = "Waiting for camera...";
+
+    public static Vector2 Nose => GetLandmark(PoseLandmarkIndex.Nose);
+    public static Vector2 LeftShoulder => GetLandmark(PoseLandmarkIndex.LeftShoulder);
+    public static Vector2 RightShoulder => GetLandmark(PoseLandmarkIndex.RightShoulder);
+    public static Vector2 LeftHip => GetLandmark(PoseLandmarkIndex.LeftHip);
+    public static Vector2 RightHip => GetLandmark(PoseLandmarkIndex.RightHip);
+    public static Vector2 LeftWrist => GetLandmark(PoseLandmarkIndex.LeftWrist);
+    public static Vector2 RightWrist => GetLandmark(PoseLandmarkIndex.RightWrist);
 
     private PoseLandmarker _landmarker;
     private Texture2D _cameraFrameTexture;
     private Color32[] _pixelBuffer;
     private int _frameSkip = 0;
+
+    [Header("Tracking Settings")]
     [SerializeField] private int processEveryNthFrame = 2; // Performance: skip frames
+    [SerializeField, Range(0f, 1f)] private float landmarkSmoothing = 0.35f;
+    [SerializeField, Range(0f, 1f)] private float minimumVisibility = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float minimumPresence = 0.5f;
 
     void Awake() { Instance = this; }
 
@@ -35,18 +66,36 @@ public class PoseDetectionManager : MonoBehaviour
 
     void InitMediaPipe()
     {
-        var modelPath = System.IO.Path.Combine(Application.streamingAssetsPath, "pose_landmarker_lite.task");
-        var options = new PoseLandmarkerOptions(
-            new BaseOptions(modelAssetPath: modelPath),
-            runningMode: Mediapipe.Tasks.Vision.Core.RunningMode.LIVE_STREAM,
-            resultCallback: OnPoseLandmarkerResult
-        );
-        _landmarker = PoseLandmarker.CreateFromOptions(options);
-        Debug.Log("PoseLandmarker initialized.");
+        try
+        {
+            var modelPath = System.IO.Path.Combine(Application.streamingAssetsPath, "pose_landmarker_lite.task");
+            var options = new PoseLandmarkerOptions(
+                new BaseOptions(modelAssetPath: modelPath),
+                runningMode: Mediapipe.Tasks.Vision.Core.RunningMode.LIVE_STREAM,
+                resultCallback: OnPoseLandmarkerResult
+            );
+            _landmarker = PoseLandmarker.CreateFromOptions(options);
+            InitializationFailed = false;
+            StatusMessage = "PoseLandmarker initialized.";
+            Debug.Log(StatusMessage);
+        }
+        catch (System.DllNotFoundException ex)
+        {
+            InitializationFailed = true;
+            StatusMessage = BuildNativePluginErrorMessage();
+            Debug.LogError($"{StatusMessage}\n{ex}");
+        }
+        catch (System.Exception ex)
+        {
+            InitializationFailed = true;
+            StatusMessage = $"MediaPipe init failed: {ex.GetType().Name}";
+            Debug.LogError($"{StatusMessage}\n{ex}");
+        }
     }
 
     void Update()
     {
+        if (InitializationFailed) return;
         if (_landmarker == null) return;
         if (!CameraInputManager.Instance.IsReady()) return;
 
@@ -70,19 +119,91 @@ public class PoseDetectionManager : MonoBehaviour
     {
         if (result.poseLandmarks == null || result.poseLandmarks.Count == 0)
         {
-            IsTracking = false;
+            ResetTrackingState();
+            StatusMessage = "No pose detected. Stand where your upper body is visible to the camera.";
             return;
         }
+
         IsTracking = true;
+        StatusMessage = "Pose detected.";
         var lm = result.poseLandmarks[0].landmarks;
 
-        // MediaPipe landmark indices
-        Nose            = new Vector2(lm[0].x,  lm[0].y);
-        LeftShoulder    = new Vector2(lm[11].x, lm[11].y);
-        RightShoulder   = new Vector2(lm[12].x, lm[12].y);
-        LeftHip         = new Vector2(lm[23].x, lm[23].y);
-        RightHip        = new Vector2(lm[24].x, lm[24].y);
-        RightWrist      = new Vector2(lm[16].x, lm[16].y);
+        if (lm == null || lm.Count < PoseLandmarkCount)
+        {
+            ResetTrackingState();
+            return;
+        }
+
+        for (int i = 0; i < PoseLandmarkCount; i++)
+        {
+            UpdateLandmark(i, lm[i]);
+        }
+    }
+
+    public static Vector2 GetLandmark(PoseLandmarkIndex index) => CurrentLandmarks[(int)index];
+
+    public static float GetVisibility(PoseLandmarkIndex index) => CurrentVisibility[(int)index];
+
+    public static float GetPresence(PoseLandmarkIndex index) => CurrentPresence[(int)index];
+
+    public static bool IsLandmarkReliable(PoseLandmarkIndex index)
+    {
+        if (Instance == null)
+        {
+            return false;
+        }
+
+        var landmarkIndex = (int)index;
+        return CurrentVisibility[landmarkIndex] >= Instance.minimumVisibility &&
+               CurrentPresence[landmarkIndex] >= Instance.minimumPresence;
+    }
+
+    public static bool TryGetBodyCenter(out Vector2 bodyCenter)
+    {
+        if (!IsLandmarkReliable(PoseLandmarkIndex.LeftShoulder) ||
+            !IsLandmarkReliable(PoseLandmarkIndex.RightShoulder) ||
+            !IsLandmarkReliable(PoseLandmarkIndex.LeftHip) ||
+            !IsLandmarkReliable(PoseLandmarkIndex.RightHip))
+        {
+            bodyCenter = Vector2.zero;
+            return false;
+        }
+
+        var shoulderCenter = (LeftShoulder + RightShoulder) * 0.5f;
+        var hipCenter = (LeftHip + RightHip) * 0.5f;
+        bodyCenter = (shoulderCenter + hipCenter) * 0.5f;
+        return true;
+    }
+
+    private void UpdateLandmark(int index, NormalizedLandmark landmark)
+    {
+        var targetPosition = new Vector2(landmark.x, landmark.y);
+        var smoothedPosition = Vector2.Lerp(CurrentLandmarks[index], targetPosition, 1f - landmarkSmoothing);
+
+        CurrentLandmarks[index] = smoothedPosition;
+        CurrentVisibility[index] = landmark.visibility ?? 0f;
+        CurrentPresence[index] = landmark.presence ?? 0f;
+    }
+
+    private void ResetTrackingState()
+    {
+        IsTracking = false;
+
+        for (int i = 0; i < PoseLandmarkCount; i++)
+        {
+            CurrentVisibility[i] = 0f;
+            CurrentPresence[i] = 0f;
+        }
+    }
+
+    private string BuildNativePluginErrorMessage()
+    {
+        if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
+        {
+            return "MediaPipe native plugin is missing for macOS. This repo can capture camera in Editor, but pose detection will not run on your Mac until a macOS mediapipe_c library is added. Build and test on Android, or add the macOS native plugin.";
+        }
+
+        return "MediaPipe native plugin could not be loaded for this platform.";
     }
 
     void EnsureCameraFrameTexture(int width, int height)
@@ -103,6 +224,7 @@ public class PoseDetectionManager : MonoBehaviour
 
     void OnDestroy()
     {
+        ResetTrackingState();
         _landmarker?.Close();
         if (_cameraFrameTexture != null)
         {

@@ -8,6 +8,16 @@
 [Mm]emoryCaptures/
 UserSettings/
 
+# Mobile build outputs
+[Bb]uild/[Aa]ndroid/
+[Bb]uilds/[Aa]ndroid/
+[Bb]uild/[Ii][Oo][Ss]/
+[Bb]uilds/[Ii][Oo][Ss]/
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+
 # Auto-generated solution/project files
 *.csproj
 *.sln

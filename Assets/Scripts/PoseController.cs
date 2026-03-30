@@ -3,23 +3,32 @@ using TMPro;
 
 public class PoseController : MonoBehaviour
 {
+    private const float ScreenCenterX = 0.5f;
+
     [Header("References")]
     [SerializeField] private Transform playerCube;
     [SerializeField] private TextMeshProUGUI debugText;
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed    = 5f;
-    [SerializeField] private float jumpForce    = 7f;
     [SerializeField] private float leanThreshold = 0.08f; // How much lean triggers move
     [SerializeField] private float lerpSmooth   = 6f;
+    [SerializeField] private float moveBounds = 4f;
+    [SerializeField] private bool mirrorFrontCameraMovement = true;
+    [SerializeField] private float leanSmoothing = 8f;
 
     [Header("Jump Settings")]
+    [SerializeField] private float jumpForce    = 7f;
     [SerializeField] private float jumpCooldown = 0.8f;
+    [SerializeField] private float wristAboveNoseOffset = 0.05f;
+    [SerializeField] private int jumpFramesRequired = 2;
 
     private Rigidbody _rb;
     private float     _lastJumpTime = -999f;
     private bool      _isGrounded   = true;
     private float     _targetX      = 0f;
+    private float     _smoothedLean = 0f;
+    private int       _jumpPoseFrames = 0;
 
     void Start()
     {
@@ -28,37 +37,46 @@ public class PoseController : MonoBehaviour
 
     void Update()
     {
-        if (!PoseDetectionManager.IsTracking)
+        if (PoseDetectionManager.InitializationFailed)
         {
-            UpdateDebugUI("No pose detected — stand in front of camera");
+            UpdateDebugUI(PoseDetectionManager.StatusMessage);
             return;
         }
 
-        // --- JUMP: right wrist Y above nose Y ---
-        // Note: MediaPipe Y=0 is top, Y=1 is bottom (inverted!)
-        float wristY = PoseDetectionManager.RightWrist.y;
-        float noseY  = PoseDetectionManager.Nose.y;
-        if (wristY < noseY - 0.05f && _isGrounded && Time.time - _lastJumpTime > jumpCooldown)
+        if (!PoseDetectionManager.IsTracking)
         {
-            Jump();
+            _jumpPoseFrames = 0;
+            UpdateDebugUI(PoseDetectionManager.StatusMessage);
+            return;
         }
 
-        // --- LEAN: body center X shift ---
-        float shoulderCenterX = (PoseDetectionManager.LeftShoulder.x + PoseDetectionManager.RightShoulder.x) / 2f;
-        float hipCenterX      = (PoseDetectionManager.LeftHip.x     + PoseDetectionManager.RightHip.x)     / 2f;
-        float bodyCenterX     = (shoulderCenterX + hipCenterX) / 2f;
-
-        // bodyCenterX: 0=left edge, 0.5=center, 1=right edge (mirrored in front cam)
-        float lean = bodyCenterX - 0.5f; // negative = leaning RIGHT on screen = move left in mirror
-
-        if (lean > leanThreshold)
+        if (IsJumpPose())
         {
-            MoveHorizontal(-1f); // screen-right = move left (front cam mirror)
+            _jumpPoseFrames++;
+            if (_jumpPoseFrames >= jumpFramesRequired && _isGrounded && Time.time - _lastJumpTime > jumpCooldown)
+            {
+                Jump();
+                _jumpPoseFrames = 0;
+            }
+        }
+        else
+        {
+            _jumpPoseFrames = 0;
+        }
+
+        float bodyCenterX = ScreenCenterX;
+        float lean = 0f;
+        bool hasReliableBodyCenter = TryGetLean(out lean, out bodyCenterX);
+        _smoothedLean = Mathf.Lerp(_smoothedLean, lean, Time.deltaTime * leanSmoothing);
+
+        if (hasReliableBodyCenter && _smoothedLean > leanThreshold)
+        {
+            MoveHorizontal(mirrorFrontCameraMovement ? -1f : 1f);
             Debug.Log("MoveLeft");
         }
-        else if (lean < -leanThreshold)
+        else if (hasReliableBodyCenter && _smoothedLean < -leanThreshold)
         {
-            MoveHorizontal(1f);
+            MoveHorizontal(mirrorFrontCameraMovement ? 1f : -1f);
             Debug.Log("MoveRight");
         }
 
@@ -71,14 +89,40 @@ public class PoseController : MonoBehaviour
         UpdateDebugUI(
             $"Nose: ({PoseDetectionManager.Nose.x:F2}, {PoseDetectionManager.Nose.y:F2})\n" +
             $"RWrist: ({PoseDetectionManager.RightWrist.x:F2}, {PoseDetectionManager.RightWrist.y:F2})\n" +
-            $"Body X: {bodyCenterX:F2} | Lean: {lean:F2}\n" +
+            $"Body X: {bodyCenterX:F2} | Lean: {_smoothedLean:F2}\n" +
+            $"Jump Pose Frames: {_jumpPoseFrames}\n" +
             $"Grounded: {_isGrounded}"
         );
     }
 
     void MoveHorizontal(float direction)
     {
-        _targetX = Mathf.Clamp(_targetX + direction * moveSpeed * Time.deltaTime, -4f, 4f);
+        _targetX = Mathf.Clamp(_targetX + direction * moveSpeed * Time.deltaTime, -moveBounds, moveBounds);
+    }
+
+    bool IsJumpPose()
+    {
+        if (!PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.RightWrist) ||
+            !PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.Nose))
+        {
+            return false;
+        }
+
+        return PoseDetectionManager.RightWrist.y < PoseDetectionManager.Nose.y - wristAboveNoseOffset;
+    }
+
+    bool TryGetLean(out float lean, out float bodyCenterX)
+    {
+        if (!PoseDetectionManager.TryGetBodyCenter(out var bodyCenter))
+        {
+            lean = 0f;
+            bodyCenterX = ScreenCenterX;
+            return false;
+        }
+
+        bodyCenterX = bodyCenter.x;
+        lean = bodyCenterX - ScreenCenterX;
+        return true;
     }
 
     void Jump()

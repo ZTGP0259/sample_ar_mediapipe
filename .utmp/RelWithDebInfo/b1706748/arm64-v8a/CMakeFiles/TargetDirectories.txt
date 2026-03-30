@@ -1,0 +1,5 @@
+/Users/applessd/sample_ar_mediapipe/.utmp/RelWithDebInfo/b1706748/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/applessd/sample_ar_mediapipe/.utmp/RelWithDebInfo/b1706748/arm64-v8a/CMakeFiles/rebuild_cache.dir
+/Users/applessd/sample_ar_mediapipe/.utmp/RelWithDebInfo/b1706748/arm64-v8a/GameActivity/CMakeFiles/game.dir
+/Users/applessd/sample_ar_mediapipe/.utmp/RelWithDebInfo/b1706748/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+/Users/applessd/sample_ar_mediapipe/.utmp/RelWithDebInfo/b1706748/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir
