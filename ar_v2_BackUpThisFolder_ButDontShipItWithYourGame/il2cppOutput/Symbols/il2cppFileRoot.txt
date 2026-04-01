@@ -1,1 +1,0 @@
-/Users/applessd/sample_ar_mediapipe/Library/Bee/artifacts/Android/il2cppOutput/cpp

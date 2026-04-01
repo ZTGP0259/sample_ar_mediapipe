@@ -59,39 +59,73 @@ public class PoseDetectionManager : MonoBehaviour
 
     IEnumerator Start()
     {
-        // Wait for camera to be ready
         yield return new WaitUntil(() => CameraInputManager.Instance.IsReady());
+        yield return CopyModelToDataPath();
         InitMediaPipe();
     }
 
-    void InitMediaPipe()
+    IEnumerator CopyModelToDataPath()
+{
+    string modelFileName = "pose_landmarker_lite.task";
+    string destPath = System.IO.Path.Combine(Application.persistentDataPath, modelFileName);
+
+    // Skip copy if already done
+    if (System.IO.File.Exists(destPath))
     {
-        try
-        {
-            var modelPath = System.IO.Path.Combine(Application.streamingAssetsPath, "pose_landmarker_lite.task");
-            var options = new PoseLandmarkerOptions(
-                new BaseOptions(modelAssetPath: modelPath),
-                runningMode: Mediapipe.Tasks.Vision.Core.RunningMode.LIVE_STREAM,
-                resultCallback: OnPoseLandmarkerResult
-            );
-            _landmarker = PoseLandmarker.CreateFromOptions(options);
-            InitializationFailed = false;
-            StatusMessage = "PoseLandmarker initialized.";
-            Debug.Log(StatusMessage);
-        }
-        catch (System.DllNotFoundException ex)
-        {
-            InitializationFailed = true;
-            StatusMessage = BuildNativePluginErrorMessage();
-            Debug.LogError($"{StatusMessage}\n{ex}");
-        }
-        catch (System.Exception ex)
-        {
-            InitializationFailed = true;
-            StatusMessage = $"MediaPipe init failed: {ex.GetType().Name}";
-            Debug.LogError($"{StatusMessage}\n{ex}");
-        }
+        Debug.Log("Model already copied to: " + destPath);
+        yield break;
     }
+
+    string sourcePath = System.IO.Path.Combine(Application.streamingAssetsPath, modelFileName);
+
+    // On Android, must use UnityWebRequest to read from StreamingAssets
+    using var request = UnityEngine.Networking.UnityWebRequest.Get(sourcePath);
+    yield return request.SendWebRequest();
+
+    if (request.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
+    {
+        InitializationFailed = true;
+        StatusMessage = $"Failed to load model file: {request.error}\nMake sure pose_landmarker_lite.task is in Assets/StreamingAssets/";
+        Debug.LogError(StatusMessage);
+        yield break;
+    }
+
+    System.IO.File.WriteAllBytes(destPath, request.downloadHandler.data);
+    Debug.Log("Model copied to: " + destPath);
+}
+
+    void InitMediaPipe()
+{
+    try
+    {
+        // Use persistentDataPath — guaranteed writable on Android
+        string modelPath = System.IO.Path.Combine(Application.persistentDataPath, "pose_landmarker_lite.task");
+
+        if (!System.IO.File.Exists(modelPath))
+        {
+            InitializationFailed = true;
+            StatusMessage = "Model file not found at: " + modelPath;
+            Debug.LogError(StatusMessage);
+            return;
+        }
+
+        var options = new PoseLandmarkerOptions(
+            new BaseOptions(modelAssetPath: modelPath),
+            runningMode: Mediapipe.Tasks.Vision.Core.RunningMode.LIVE_STREAM,
+            resultCallback: OnPoseLandmarkerResult
+        );
+        _landmarker = PoseLandmarker.CreateFromOptions(options);
+        InitializationFailed = false;
+        StatusMessage = "PoseLandmarker initialized.";
+        Debug.Log(StatusMessage);
+    }
+    catch (System.Exception ex)
+    {
+        InitializationFailed = true;
+        StatusMessage = $"MediaPipe init failed: {ex.GetType().Name}: {ex.Message}";
+        Debug.LogError($"{StatusMessage}\n{ex}");
+    }
+}
 
     void Update()
     {
