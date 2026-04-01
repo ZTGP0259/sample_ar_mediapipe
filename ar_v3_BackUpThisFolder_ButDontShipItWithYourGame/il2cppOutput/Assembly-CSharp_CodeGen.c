@@ -29,6 +29,14 @@ extern void U3CRequestCameraPermissionU3Ed__7_MoveNext_m67CD62C0BADDAA7420525FBD
 extern void U3CRequestCameraPermissionU3Ed__7_System_Collections_Generic_IEnumeratorU3CSystem_ObjectU3E_get_Current_m1462E91839F989051224BA48FC11E8306022FEBD (void);
 extern void U3CRequestCameraPermissionU3Ed__7_System_Collections_IEnumerator_Reset_m663C3A45D31E2901717DF2DB3494A9C0391CBF6B (void);
 extern void U3CRequestCameraPermissionU3Ed__7_System_Collections_IEnumerator_get_Current_m754A5BC82F308E6D69364C3B96332864FB35CC94 (void);
+extern void CameraPreviewUI_Update_m2E580092E58528F4A8BDF84E3E4B7A6E9DCBABFF (void);
+extern void CameraPreviewUI__ctor_m4EDC163965922FD85C201B1E42C0CA25E57808E3 (void);
+extern void CharacterPoseReplicator_Start_m126C09611377807D9A8496ECD5AA744CE8BA1578 (void);
+extern void CharacterPoseReplicator_LateUpdate_mE442F65EF46E4606F53FFD559CF56D2B71FE699E (void);
+extern void CharacterPoseReplicator_ApplyRightArm_m79121A8F045C95E3A5D9DAD5E9E013CE77E817EF (void);
+extern void CharacterPoseReplicator_ApplyLeftArm_mED01DD7AB946FBB29F3637B2413C69F888B571C3 (void);
+extern void CharacterPoseReplicator_ApplySpineLean_m94E86D2456FFE540E52E347C0968E720AB420398 (void);
+extern void CharacterPoseReplicator__ctor_m336466718D762B8888E4199A2C06CF76BF2C224D (void);
 extern void PoseController_Start_mBE184EFCE8F0FBF4E3CFE1F080F4E17B5A0E11A5 (void);
 extern void PoseController_Update_mB0547C65712A1A9C3AA1C3DA715CDE7D7ABF1A88 (void);
 extern void PoseController_MoveHorizontal_m4868FDCF7A85D78086A26E2584EBE3D11BDB749A (void);
@@ -950,7 +958,7 @@ extern void FaceDetectionConfigWindow_U3CInitializeRunningModeU3Eb__22_0_mA92B45
 extern void FaceDetectionConfigWindow_U3CInitializeMinDetectionConfidenceU3Eb__23_0_m31E2C78577D731BD83E7BFAF90983D334C3B417E (void);
 extern void FaceDetectionConfigWindow_U3CInitializeMinSuppressionThresholdU3Eb__24_0_m64F24E9C1B82A7EE96A82CBA76531ABD028F8B6A (void);
 extern void FaceDetectionConfigWindow_U3CInitializeNumFacesU3Eb__25_0_m4622CA4893D10D647FC146F141377B2D8F516F82 (void);
-static Il2CppMethodPointer s_methodPointers[1013] = 
+static Il2CppMethodPointer s_methodPointers[1021] = 
 {
 	UnicodeInlineText_OnPopulateMesh_m494236F236211061859A497C7A1091C5A2C5BD6D,
 	UnicodeInlineText_Decode_m3D8FBEDB0EA494CD7D1E0AF967D3BA6A545DDB1B,
@@ -974,6 +982,14 @@ static Il2CppMethodPointer s_methodPointers[1013] =
 	U3CRequestCameraPermissionU3Ed__7_System_Collections_Generic_IEnumeratorU3CSystem_ObjectU3E_get_Current_m1462E91839F989051224BA48FC11E8306022FEBD,
 	U3CRequestCameraPermissionU3Ed__7_System_Collections_IEnumerator_Reset_m663C3A45D31E2901717DF2DB3494A9C0391CBF6B,
 	U3CRequestCameraPermissionU3Ed__7_System_Collections_IEnumerator_get_Current_m754A5BC82F308E6D69364C3B96332864FB35CC94,
+	CameraPreviewUI_Update_m2E580092E58528F4A8BDF84E3E4B7A6E9DCBABFF,
+	CameraPreviewUI__ctor_m4EDC163965922FD85C201B1E42C0CA25E57808E3,
+	CharacterPoseReplicator_Start_m126C09611377807D9A8496ECD5AA744CE8BA1578,
+	CharacterPoseReplicator_LateUpdate_mE442F65EF46E4606F53FFD559CF56D2B71FE699E,
+	CharacterPoseReplicator_ApplyRightArm_m79121A8F045C95E3A5D9DAD5E9E013CE77E817EF,
+	CharacterPoseReplicator_ApplyLeftArm_mED01DD7AB946FBB29F3637B2413C69F888B571C3,
+	CharacterPoseReplicator_ApplySpineLean_m94E86D2456FFE540E52E347C0968E720AB420398,
+	CharacterPoseReplicator__ctor_m336466718D762B8888E4199A2C06CF76BF2C224D,
 	PoseController_Start_mBE184EFCE8F0FBF4E3CFE1F080F4E17B5A0E11A5,
 	PoseController_Update_mB0547C65712A1A9C3AA1C3DA715CDE7D7ABF1A88,
 	PoseController_MoveHorizontal_m4868FDCF7A85D78086A26E2584EBE3D11BDB749A,
@@ -1977,17 +1993,17 @@ extern void U3CWaitNextAsyncU3Ed__58_MoveNext_mF1A0A4EA9DAB41F1835BB33B8C9DBDD74
 extern void U3CWaitNextAsyncU3Ed__58_SetStateMachine_m35F545E125DBD2A10337A5A8DE39562F787E0969_AdjustorThunk (void);
 static Il2CppTokenAdjustorThunkPair s_adjustorThunks[9] = 
 {
-	{ 0x06000073, ResolutionStruct__ctor_mE369C9144160B88E2BF577642F69F4516CEAC3D6_AdjustorThunk },
-	{ 0x06000074, ResolutionStruct__ctor_m813873DE8AFC6A291335D52E0FE801A0A4F3ED3F_AdjustorThunk },
-	{ 0x06000075, ResolutionStruct_ToResolution_m7D3150BCB50AC715F5576C7EA1D08626D9F4B8BE_AdjustorThunk },
-	{ 0x06000076, ResolutionStruct_ToString_m7EF2314E11C11102CA4AAE2DC684F913AEBD75AE_AdjustorThunk },
-	{ 0x06000284, U3CWaitNextAsyncU3Ed__12_MoveNext_mAE2EC29E66A3F81D91DE3FF015124D75EDE7EFB7_AdjustorThunk },
-	{ 0x06000285, U3CWaitNextAsyncU3Ed__12_SetStateMachine_mDE3328A73B7222B8EF6F818BDD130C171E62E313_AdjustorThunk },
-	{ 0x060002A2, HolisticTrackingResult__ctor_m3FC6BB8336C944A3752E0DB01D9D526A08645B20_AdjustorThunk },
-	{ 0x060002CD, U3CWaitNextAsyncU3Ed__58_MoveNext_mF1A0A4EA9DAB41F1835BB33B8C9DBDD7473F9F9E_AdjustorThunk },
-	{ 0x060002CE, U3CWaitNextAsyncU3Ed__58_SetStateMachine_m35F545E125DBD2A10337A5A8DE39562F787E0969_AdjustorThunk },
+	{ 0x0600007B, ResolutionStruct__ctor_mE369C9144160B88E2BF577642F69F4516CEAC3D6_AdjustorThunk },
+	{ 0x0600007C, ResolutionStruct__ctor_m813873DE8AFC6A291335D52E0FE801A0A4F3ED3F_AdjustorThunk },
+	{ 0x0600007D, ResolutionStruct_ToResolution_m7D3150BCB50AC715F5576C7EA1D08626D9F4B8BE_AdjustorThunk },
+	{ 0x0600007E, ResolutionStruct_ToString_m7EF2314E11C11102CA4AAE2DC684F913AEBD75AE_AdjustorThunk },
+	{ 0x0600028C, U3CWaitNextAsyncU3Ed__12_MoveNext_mAE2EC29E66A3F81D91DE3FF015124D75EDE7EFB7_AdjustorThunk },
+	{ 0x0600028D, U3CWaitNextAsyncU3Ed__12_SetStateMachine_mDE3328A73B7222B8EF6F818BDD130C171E62E313_AdjustorThunk },
+	{ 0x060002AA, HolisticTrackingResult__ctor_m3FC6BB8336C944A3752E0DB01D9D526A08645B20_AdjustorThunk },
+	{ 0x060002D5, U3CWaitNextAsyncU3Ed__58_MoveNext_mF1A0A4EA9DAB41F1835BB33B8C9DBDD7473F9F9E_AdjustorThunk },
+	{ 0x060002D6, U3CWaitNextAsyncU3Ed__58_SetStateMachine_m35F545E125DBD2A10337A5A8DE39562F787E0969_AdjustorThunk },
 };
-static const int32_t s_InvokerIndices[1013] = 
+static const int32_t s_InvokerIndices[1021] = 
 {
 	11288,
 	9668,
@@ -2011,6 +2027,14 @@ static const int32_t s_InvokerIndices[1013] =
 	14601,
 	14813,
 	14601,
+	14813,
+	14813,
+	14813,
+	14813,
+	14813,
+	14813,
+	14813,
+	14813,
 	14813,
 	14813,
 	11383,
@@ -3005,38 +3029,38 @@ static const int32_t s_InvokerIndices[1013] =
 };
 static const Il2CppTokenRangePair s_rgctxIndices[32] = 
 {
-	{ 0x0200002C, { 0, 3 } },
-	{ 0x0200003F, { 180, 16 } },
-	{ 0x02000040, { 196, 19 } },
-	{ 0x02000041, { 215, 22 } },
-	{ 0x02000042, { 237, 25 } },
-	{ 0x02000043, { 262, 28 } },
-	{ 0x02000044, { 290, 31 } },
-	{ 0x02000045, { 321, 36 } },
-	{ 0x02000047, { 357, 3 } },
-	{ 0x0200004A, { 363, 3 } },
-	{ 0x02000054, { 381, 4 } },
-	{ 0x02000055, { 385, 1 } },
-	{ 0x06000165, { 3, 2 } },
-	{ 0x06000167, { 5, 5 } },
-	{ 0x06000168, { 10, 1 } },
-	{ 0x06000169, { 11, 5 } },
-	{ 0x0600016A, { 16, 7 } },
-	{ 0x0600016B, { 23, 9 } },
-	{ 0x0600016C, { 32, 11 } },
-	{ 0x0600016D, { 43, 13 } },
-	{ 0x0600016E, { 56, 15 } },
-	{ 0x0600016F, { 71, 18 } },
-	{ 0x06000170, { 89, 10 } },
-	{ 0x06000171, { 99, 11 } },
-	{ 0x06000172, { 110, 12 } },
-	{ 0x06000173, { 122, 13 } },
-	{ 0x06000174, { 135, 14 } },
-	{ 0x06000175, { 149, 15 } },
-	{ 0x06000176, { 164, 16 } },
-	{ 0x060001A9, { 360, 3 } },
-	{ 0x060001C1, { 366, 3 } },
-	{ 0x060001E5, { 369, 12 } },
+	{ 0x0200002E, { 0, 3 } },
+	{ 0x02000041, { 180, 16 } },
+	{ 0x02000042, { 196, 19 } },
+	{ 0x02000043, { 215, 22 } },
+	{ 0x02000044, { 237, 25 } },
+	{ 0x02000045, { 262, 28 } },
+	{ 0x02000046, { 290, 31 } },
+	{ 0x02000047, { 321, 36 } },
+	{ 0x02000049, { 357, 3 } },
+	{ 0x0200004C, { 363, 3 } },
+	{ 0x02000056, { 381, 4 } },
+	{ 0x02000057, { 385, 1 } },
+	{ 0x0600016D, { 3, 2 } },
+	{ 0x0600016F, { 5, 5 } },
+	{ 0x06000170, { 10, 1 } },
+	{ 0x06000171, { 11, 5 } },
+	{ 0x06000172, { 16, 7 } },
+	{ 0x06000173, { 23, 9 } },
+	{ 0x06000174, { 32, 11 } },
+	{ 0x06000175, { 43, 13 } },
+	{ 0x06000176, { 56, 15 } },
+	{ 0x06000177, { 71, 18 } },
+	{ 0x06000178, { 89, 10 } },
+	{ 0x06000179, { 99, 11 } },
+	{ 0x0600017A, { 110, 12 } },
+	{ 0x0600017B, { 122, 13 } },
+	{ 0x0600017C, { 135, 14 } },
+	{ 0x0600017D, { 149, 15 } },
+	{ 0x0600017E, { 164, 16 } },
+	{ 0x060001B1, { 360, 3 } },
+	{ 0x060001C9, { 366, 3 } },
+	{ 0x060001ED, { 369, 12 } },
 };
 extern const uint32_t g_rgctx_WaitForResult_1_t23BC6C1D71B6134FA44D619601A58861228B8C7C;
 extern const uint32_t g_rgctx_T_t7BF18128D0A7F7BA6FA6114E05C6482DA4D0F6B7;
@@ -3817,7 +3841,7 @@ IL2CPP_EXTERN_C const Il2CppCodeGenModule g_AssemblyU2DCSharp_CodeGenModule;
 const Il2CppCodeGenModule g_AssemblyU2DCSharp_CodeGenModule = 
 {
 	"Assembly-CSharp.dll",
-	1013,
+	1021,
 	s_methodPointers,
 	9,
 	s_adjustorThunks,

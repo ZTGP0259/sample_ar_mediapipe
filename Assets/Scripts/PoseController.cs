@@ -101,15 +101,18 @@ public class PoseController : MonoBehaviour
     }
 
     bool IsJumpPose()
-    {
-        if (!PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.RightWrist) ||
-            !PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.Nose))
-        {
-            return false;
-        }
+{
+    // Reject if wrist is outside camera frame (negative or >1.0)
+    if (PoseDetectionManager.RightWrist.x < 0f || PoseDetectionManager.RightWrist.x > 1f ||
+        PoseDetectionManager.RightWrist.y < 0f || PoseDetectionManager.RightWrist.y > 1f)
+        return false;
 
-        return PoseDetectionManager.RightWrist.y < PoseDetectionManager.Nose.y - wristAboveNoseOffset;
-    }
+    if (!PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.RightWrist) ||
+        !PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.Nose))
+        return false;
+
+    return PoseDetectionManager.RightWrist.y < PoseDetectionManager.Nose.y - wristAboveNoseOffset;
+}
 
     bool TryGetLean(out float lean, out float bodyCenterX)
     {

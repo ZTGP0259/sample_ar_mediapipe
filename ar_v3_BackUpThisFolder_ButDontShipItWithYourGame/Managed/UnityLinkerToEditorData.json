@@ -10,7 +10,9 @@
         "dependencies": [
           {
             "name": "Animator",
-            "scenes": [],
+            "scenes": [
+              "Assets/Scenes/GameScene.unity"
+            ],
             "dependencyType": 0,
             "icon": null
           },
@@ -23,6 +25,14 @@
           {
             "name": "AnimatorOverrideController",
             "scenes": [],
+            "dependencyType": 0,
+            "icon": null
+          },
+          {
+            "name": "Avatar",
+            "scenes": [
+              "Assets/Scenes/GameScene.unity"
+            ],
             "dependencyType": 0,
             "icon": null
           },
@@ -417,6 +427,14 @@
             "name": "ShaderNameRegistry",
             "scenes": [],
             "dependencyType": 1,
+            "icon": null
+          },
+          {
+            "name": "SkinnedMeshRenderer",
+            "scenes": [
+              "Assets/Scenes/GameScene.unity"
+            ],
+            "dependencyType": 0,
             "icon": null
           },
           {
