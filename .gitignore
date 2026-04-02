@@ -13,6 +13,8 @@ UserSettings/
 [Bb]uilds/[Aa]ndroid/
 [Bb]uild/[Ii][Oo][Ss]/
 [Bb]uilds/[Ii][Oo][Ss]/
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+*_BurstDebugInformation_DoNotShip/
 *.apk
 *.aab
 *.ipa
@@ -35,6 +37,7 @@ UserSettings/
 # OS/editor files
 .DS_Store
 .vscode/
+.utmp/
 
 # Unity cache/meta artifacts
 sysinfo.txt
