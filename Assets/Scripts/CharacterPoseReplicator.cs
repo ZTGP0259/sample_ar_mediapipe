@@ -5,7 +5,7 @@ public class CharacterPoseReplicator : MonoBehaviour
     [Header("Animator")]
     [SerializeField] private Animator animator;
 
-    [Header("Bone References - assign in Inspector")]
+    [Header("Bone References")]
     [SerializeField] private Transform rightUpperArm;
     [SerializeField] private Transform leftUpperArm;
     [SerializeField] private Transform rightForeArm;
@@ -13,85 +13,178 @@ public class CharacterPoseReplicator : MonoBehaviour
     [SerializeField] private Transform spine;
     [SerializeField] private Transform head;
 
-    [Header("Settings")]
-    [SerializeField] private float armRotationScale = 120f;
-    [SerializeField] private float leanScale = 30f;
-    [SerializeField] private float smoothing = 8f;
+    [Header("Arm Settings")]
+    [SerializeField] private float armRaiseScale = 150f;
+    [SerializeField] private float armForwardScale = 80f;
+    [SerializeField] private Vector3 rightArmRaiseAxis = new Vector3(0, 0, 1);
+    [SerializeField] private Vector3 rightArmForwardAxis = new Vector3(1, 0, 0);
+    [SerializeField] private Vector3 leftArmRaiseAxis = new Vector3(0, 0, -1);
+    [SerializeField] private Vector3 leftArmForwardAxis = new Vector3(1, 0, 0);
 
-    // Cached original rotations
-    private Quaternion _origRightUpperArm;
-    private Quaternion _origLeftUpperArm;
-    private Quaternion _origRightForeArm;
-    private Quaternion _origLeftForeArm;
-    private Quaternion _origSpine;
+    [Header("Body Settings")]
+    [SerializeField] private float leanScale = 25f;
+    [SerializeField] private float headTurnScale = 40f;
+    [SerializeField] private float headNodScale = 30f;
 
-    // Smoothed targets
-    private float _smoothRightArmAngle;
-    private float _smoothLeftArmAngle;
-    private float _smoothLean;
+    [Header("Smoothing")]
+    [SerializeField] private float smoothing = 10f;
+    [SerializeField, Range(0f, 1f)] private float visibilityThreshold = 0.3f;
+
+    // Original rotations
+    private Quaternion _origRight, _origLeft, _origRightFore, _origLeftFore;
+    private Quaternion _origSpine, _origHead;
+
+    // Smoothed values
+    private float _sRightRaise, _sRightFwd;
+    private float _sLeftRaise,  _sLeftFwd;
+    private float _sLean, _sHeadTurn, _sHeadNod;
+
+    // Previous shoulder center for head tracking
+    private float _prevShoulderCenterX = 0.5f;
 
     void Start()
     {
-        if (rightUpperArm) _origRightUpperArm = rightUpperArm.localRotation;
-        if (leftUpperArm)  _origLeftUpperArm  = leftUpperArm.localRotation;
-        if (rightForeArm)  _origRightForeArm  = rightForeArm.localRotation;
-        if (leftForeArm)   _origLeftForeArm   = leftForeArm.localRotation;
-        if (spine)         _origSpine         = spine.localRotation;
+        if (rightUpperArm) _origRight     = rightUpperArm.localRotation;
+        if (leftUpperArm)  _origLeft      = leftUpperArm.localRotation;
+        if (rightForeArm)  _origRightFore = rightForeArm.localRotation;
+        if (leftForeArm)   _origLeftFore  = leftForeArm.localRotation;
+        if (spine)         _origSpine     = spine.localRotation;
+        if (head)          _origHead      = head.localRotation;
     }
 
-    void LateUpdate()  // LateUpdate so we apply AFTER animator
+    void LateUpdate()
     {
         if (!PoseDetectionManager.IsTracking) return;
 
         ApplyRightArm();
         ApplyLeftArm();
-        ApplySpineLean();
+        ApplySpine();
+        ApplyHead();
     }
 
     void ApplyRightArm()
     {
         if (!rightUpperArm) return;
-        if (!PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.RightWrist) ||
-            !PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.RightShoulder))
-            return;
 
-        // Y in MediaPipe: 0=top, 1=bottom. Convert to arm raise angle.
+        bool wristOk    = IsReliable(PoseDetectionManager.PoseLandmarkIndex.RightWrist);
+        bool shoulderOk = IsReliable(PoseDetectionManager.PoseLandmarkIndex.RightShoulder);
+        if (!shoulderOk) return;
+
         float shoulderY = PoseDetectionManager.RightShoulder.y;
-        float wristY    = PoseDetectionManager.RightWrist.y;
-        float raise     = Mathf.Clamp01(shoulderY - wristY); // 0=down, 1=fully raised
+        float shoulderX = PoseDetectionManager.RightShoulder.x;
 
-        float targetAngle = raise * armRotationScale;
-        _smoothRightArmAngle = Mathf.Lerp(_smoothRightArmAngle, targetAngle, Time.deltaTime * smoothing);
+        // Raise: how high wrist is above shoulder (Y axis, inverted in MediaPipe)
+        float raiseTarget = 0f;
+        float fwdTarget   = 0f;
 
-        // Rotate forward (Z axis for most humanoid rigs — adjust if needed)
-        rightUpperArm.localRotation = _origRightUpperArm * Quaternion.Euler(0, 0, _smoothRightArmAngle);
+        if (wristOk)
+        {
+            float wristY = PoseDetectionManager.RightWrist.y;
+            float wristX = PoseDetectionManager.RightWrist.x;
+
+            // Clamp wrist to valid range
+            if (wristX >= 0f && wristX <= 1f && wristY >= 0f && wristY <= 1f)
+            {
+                raiseTarget = Mathf.Clamp01(shoulderY - wristY) * armRaiseScale;
+                // Forward: wrist moves toward center of body = arm goes forward
+                float lateralDiff = shoulderX - wristX; // positive = wrist crossed toward center
+                fwdTarget = Mathf.Clamp(lateralDiff * armForwardScale, 0f, 90f);
+            }
+        }
+
+        _sRightRaise = Mathf.Lerp(_sRightRaise, raiseTarget, Time.deltaTime * smoothing);
+        _sRightFwd   = Mathf.Lerp(_sRightFwd,   fwdTarget,   Time.deltaTime * smoothing);
+
+        rightUpperArm.localRotation = _origRight
+            * Quaternion.AngleAxis(_sRightRaise, rightArmRaiseAxis)
+            * Quaternion.AngleAxis(_sRightFwd,   rightArmForwardAxis);
     }
 
     void ApplyLeftArm()
     {
         if (!leftUpperArm) return;
-        if (!PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.LeftWrist) ||
-            !PoseDetectionManager.IsLandmarkReliable(PoseDetectionManager.PoseLandmarkIndex.LeftShoulder))
-            return;
+
+        bool wristOk    = IsReliable(PoseDetectionManager.PoseLandmarkIndex.LeftWrist);
+        bool shoulderOk = IsReliable(PoseDetectionManager.PoseLandmarkIndex.LeftShoulder);
+        if (!shoulderOk) return;
 
         float shoulderY = PoseDetectionManager.LeftShoulder.y;
-        float wristY    = PoseDetectionManager.LeftWrist.y;
-        float raise     = Mathf.Clamp01(shoulderY - wristY);
+        float shoulderX = PoseDetectionManager.LeftShoulder.x;
 
-        float targetAngle = raise * armRotationScale;
-        _smoothLeftArmAngle = Mathf.Lerp(_smoothLeftArmAngle, targetAngle, Time.deltaTime * smoothing);
+        float raiseTarget = 0f;
+        float fwdTarget   = 0f;
 
-        leftUpperArm.localRotation = _origLeftUpperArm * Quaternion.Euler(0, 0, -_smoothLeftArmAngle);
+        if (wristOk)
+        {
+            float wristY = PoseDetectionManager.LeftWrist.y;
+            float wristX = PoseDetectionManager.LeftWrist.x;
+
+            if (wristX >= 0f && wristX <= 1f && wristY >= 0f && wristY <= 1f)
+            {
+                raiseTarget = Mathf.Clamp01(shoulderY - wristY) * armRaiseScale;
+                float lateralDiff = wristX - shoulderX;
+                fwdTarget = Mathf.Clamp(lateralDiff * armForwardScale, 0f, 90f);
+            }
+        }
+
+        _sLeftRaise = Mathf.Lerp(_sLeftRaise, raiseTarget, Time.deltaTime * smoothing);
+        _sLeftFwd   = Mathf.Lerp(_sLeftFwd,   fwdTarget,   Time.deltaTime * smoothing);
+
+        leftUpperArm.localRotation = _origLeft
+            * Quaternion.AngleAxis(_sLeftRaise, leftArmRaiseAxis)
+            * Quaternion.AngleAxis(_sLeftFwd,   leftArmForwardAxis);
     }
 
-    void ApplySpineLean()
+    void ApplySpine()
     {
         if (!spine) return;
         if (!PoseDetectionManager.TryGetBodyCenter(out var bodyCenter)) return;
 
-        float lean = (bodyCenter.x - 0.5f) * leanScale;
-        _smoothLean = Mathf.Lerp(_smoothLean, lean, Time.deltaTime * smoothing);
+        float leanTarget = (bodyCenter.x - 0.5f) * leanScale;
+        _sLean = Mathf.Lerp(_sLean, leanTarget, Time.deltaTime * smoothing);
 
-        spine.localRotation = _origSpine * Quaternion.Euler(0, 0, -_smoothLean);
+        spine.localRotation = _origSpine * Quaternion.Euler(0, 0, -_sLean);
     }
+
+    void ApplyHead()
+    {
+        if (!head) return;
+
+        // Head turn: follow nose X position relative to shoulder center
+        bool noseOk = IsReliable(PoseDetectionManager.PoseLandmarkIndex.Nose);
+        if (!noseOk) return;
+
+        float noseX = PoseDetectionManager.Nose.x;
+        float noseY = PoseDetectionManager.Nose.y;
+
+        // Turn: nose shifts left/right of center
+        float turnTarget = (0.5f - noseX) * headTurnScale;  // mirror for front cam
+
+        // Nod: nose Y relative to shoulders
+        float nodTarget = 0f;
+        bool shoulderLOk = IsReliable(PoseDetectionManager.PoseLandmarkIndex.LeftShoulder);
+        bool shoulderROk = IsReliable(PoseDetectionManager.PoseLandmarkIndex.RightShoulder);
+        if (shoulderLOk && shoulderROk)
+        {
+            float shoulderY = (PoseDetectionManager.LeftShoulder.y + PoseDetectionManager.RightShoulder.y) * 0.5f;
+            // noseY < shoulderY means nose is above shoulders (looking up in MediaPipe coords)
+            nodTarget = Mathf.Clamp((shoulderY - noseY - 0.15f) * headNodScale, -30f, 20f);
+        }
+
+        _sHeadTurn = Mathf.Lerp(_sHeadTurn, turnTarget, Time.deltaTime * smoothing);
+        _sHeadNod  = Mathf.Lerp(_sHeadNod,  nodTarget,  Time.deltaTime * smoothing);
+
+        head.localRotation = _origHead * Quaternion.Euler(_sHeadNod, _sHeadTurn, 0);
+    }
+
+    bool IsReliable(PoseDetectionManager.PoseLandmarkIndex index)
+    {
+        if (Instance == null) return false;
+        int i = (int)index;
+        return PoseDetectionManager.CurrentVisibility[i] >= visibilityThreshold &&
+               PoseDetectionManager.CurrentPresence[i]  >= visibilityThreshold;
+    }
+
+    // Shortcut so we don't need Instance reference from PoseDetectionManager
+    private PoseDetectionManager Instance => PoseDetectionManager.Instance;
 }

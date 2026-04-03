@@ -912,9 +912,17 @@ MonoBehaviour:
   leftForeArm: {fileID: 676650356}
   spine: {fileID: 1921531306}
   head: {fileID: 1907173453}
-  armRotationScale: 120
-  leanScale: 30
-  smoothing: 8
+  armRaiseScale: 150
+  armForwardScale: 80
+  rightArmRaiseAxis: {x: 0, y: 0, z: 1}
+  rightArmForwardAxis: {x: 1, y: 0, z: 0}
+  leftArmRaiseAxis: {x: 0, y: 0, z: -1}
+  leftArmForwardAxis: {x: 1, y: 0, z: 0}
+  leanScale: 25
+  headTurnScale: 40
+  headNodScale: 30
+  smoothing: 10
+  visibilityThreshold: 0.3
 --- !u!4 &1074523462 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3787256744503370023, guid: 81bb9eea30387e442899949a80011e55, type: 3}
