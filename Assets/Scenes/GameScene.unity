@@ -131,24 +131,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 770a4121e0a3d4192a036739a2ddc13d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterPoseReplicator
-  animator: {fileID: 0}
   rightUpperArm: {fileID: 630486173}
   leftUpperArm: {fileID: 630486172}
   rightForeArm: {fileID: 630486171}
   leftForeArm: {fileID: 630486170}
+  rightHand: {fileID: 1150833487}
+  leftHand: {fileID: 1063639677}
   spine: {fileID: 630486169}
+  chest: {fileID: 207147541}
+  neck: {fileID: 845719445}
   head: {fileID: 630486168}
-  armRaiseScale: 150
-  armForwardScale: 80
-  rightArmRaiseAxis: {x: 0, y: 0, z: 1}
-  rightArmForwardAxis: {x: 1, y: 0, z: 0}
-  leftArmRaiseAxis: {x: 0, y: 0, z: -1}
-  leftArmForwardAxis: {x: 1, y: 0, z: 0}
-  leanScale: 25
+  leftShoulder: {fileID: 1375737369}
+  rightShoulder: {fileID: 773190230}
+  armRaiseScale: 160
+  armSideScale: 80
+  forearmBendScale: 130
+  leanScale: 20
+  twistScale: 12
   headTurnScale: 40
   headNodScale: 30
-  smoothing: 10
-  visibilityThreshold: 0.3
+  neckTurnScale: 15
+  shoulderShrug: 20
+  smoothSpeed: 7
+  deadZone: 0.03
 --- !u!1 &171680447
 GameObject:
   m_ObjectHideFlags: 0
@@ -197,6 +202,11 @@ MonoBehaviour:
   targetFPS: 30
   camWidth: 640
   camHeight: 480
+--- !u!4 &207147541 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -7058071161117146892, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -952,6 +962,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 649688881}
   m_CullTransparentMesh: 1
+--- !u!4 &773190230 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 322225969012150301, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -1001,6 +1016,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &845719445 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4965232174571498592, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1063639677 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8568320809321342861, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1150833487 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7921143521023838505, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1375737369 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4548457775781519903, guid: c3d428c8629c6481f84dcc1f7453646f, type: 3}
+  m_PrefabInstance: {fileID: 630486166}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1480385532
 GameObject:
   m_ObjectHideFlags: 0
