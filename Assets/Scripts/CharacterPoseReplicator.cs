@@ -2,382 +2,191 @@ using UnityEngine;
 
 public class CharacterPoseReplicator : MonoBehaviour
 {
-    [Header("Bone References")]
-    [SerializeField] private Transform rightUpperArm;
-    [SerializeField] private Transform leftUpperArm;
-    [SerializeField] private Transform rightForeArm;
-    [SerializeField] private Transform leftForeArm;
-    [SerializeField] private Transform rightHand;
-    [SerializeField] private Transform leftHand;
+    [Header("IK Targets — assign the empty GameObjects")]
+    [SerializeField] private Transform rightHandTarget;
+    [SerializeField] private Transform leftHandTarget;
+    [SerializeField] private Transform rightElbowHint;
+    [SerializeField] private Transform leftElbowHint;
+    [SerializeField] private Transform headTarget;
+
+    [Header("Character Root (for world space conversion)")]
+    [SerializeField] private Transform characterRoot;
+
+    [Header("Spine / Head bones (direct rotation)")]
     [SerializeField] private Transform spine;
-    [SerializeField] private Transform chest;      // spine_02 or spine_03
-    [SerializeField] private Transform neck;
     [SerializeField] private Transform head;
-    [SerializeField] private Transform leftShoulder;   // collar bone
-    [SerializeField] private Transform rightShoulder;  // collar bone
+    [SerializeField] private Transform neck;
 
-    [Header("Arm Tuning")]
-    [SerializeField] private float armRaiseScale    = 160f;
-    [SerializeField] private float armSideScale     = 80f;
-    [SerializeField] private float forearmBendScale = 130f;
+    [Header("Calibration — press C to calibrate T-pose")]
+    [SerializeField] private KeyCode calibrateKey = KeyCode.C;
 
-    [Header("Body Tuning")]
-    [SerializeField] private float leanScale        = 18f;
-    [SerializeField] private float twistScale       = 12f;
-    [SerializeField] private float headTurnScale    = 35f;
-    [SerializeField] private float headNodScale     = 25f;
-    [SerializeField] private float neckTurnScale    = 15f;
-    [SerializeField] private float shoulderShrug    = 20f;
+    [Header("Scale — how far IK targets move in world units")]
+    [SerializeField] private float ikScale = 1.4f;
 
     [Header("Smoothing")]
-    [SerializeField] private float smoothSpeed      = 8f;
-    [SerializeField] private float deadZone         = 0.025f;
+    [SerializeField] private float smoothSpeed = 12f;
+    [SerializeField] private float headSmooth  = 8f;
 
-    // Rest poses
-    private Quaternion _restRightArm,  _restLeftArm;
-    private Quaternion _restRightFore, _restLeftFore;
-    private Quaternion _restRightHand, _restLeftHand;
-    private Quaternion _restSpine,     _restChest;
-    private Quaternion _restNeck,      _restHead;
-    private Quaternion _restRightShoulder, _restLeftShoulder;
+    // Calibration data
+    private bool  _calibrated = false;
+    private float _calibShoulderWidth;
+    private float _calibShoulderY;
+    private Vector3 _charOrigin;
 
-    // Smoothed values — right arm
-    private float _rRaise, _rSide, _rTwist;
-    // Smoothed values — left arm
-    private float _lRaise, _lSide, _lTwist;
-    // Smoothed values — forearms
-    private float _rElbow, _lElbow;
-    // Smoothed values — body
-    private float _lean, _bodyTwist;
-    // Smoothed values — head/neck
-    private float _hTurn, _hNod, _nTurn;
-    // Smoothed values — shoulder shrug
-    private float _rShrug, _lShrug;
+    // Rest rotations
+    private Quaternion _restHead, _restNeck, _restSpine;
+    private bool _restCaptured = false;
 
-    void Start()
-    {
-        Cache(rightUpperArm,   ref _restRightArm);
-        Cache(leftUpperArm,    ref _restLeftArm);
-        Cache(rightForeArm,    ref _restRightFore);
-        Cache(leftForeArm,     ref _restLeftFore);
-        Cache(rightHand,       ref _restRightHand);
-        Cache(leftHand,        ref _restLeftHand);
-        Cache(spine,           ref _restSpine);
-        Cache(chest,           ref _restChest);
-        Cache(neck,            ref _restNeck);
-        Cache(head,            ref _restHead);
-        Cache(rightShoulder,   ref _restRightShoulder);
-        Cache(leftShoulder,    ref _restLeftShoulder);
-    }
-
-    void Cache(Transform t, ref Quaternion q)
-    {
-        if (t != null) q = t.localRotation;
-    }
+    // Smoothed IK target positions
+    private Vector3 _rHandSmooth, _lHandSmooth;
+    private Vector3 _rElbowSmooth, _lElbowSmooth;
+    private float _hTurn, _hNod, _lean;
 
     void LateUpdate()
     {
-        if (!PoseDetectionManager.IsTracking) return;
-        UpdateShoulders();
-        UpdateUpperArms();
-        UpdateForearms();
-        UpdateSpineAndChest();
-        UpdateNeckAndHead();
+        if (!_restCaptured) { CaptureRest(); _restCaptured = true; return; }
+
+        if (!_calibrated && PoseDetectionManager.IsTracking && IsGoodFrame())
+            Calibrate();
+
+        if (Input.GetKeyDown(calibrateKey) && PoseDetectionManager.IsTracking)
+            Calibrate();
+
+        if (!PoseDetectionManager.IsTracking || !_calibrated) return;
+
+        MoveIKTargets();
+        RotateHead();
+        RotateSpine();
     }
 
-    // ── COLLAR BONES (shrug detection) ──────────────────────
+    // ── CALIBRATION ──────────────────────────────────────────
 
-    void UpdateShoulders()
+    void Calibrate()
     {
-        bool lShOk = Visible(PDM.PoseLandmarkIndex.LeftShoulder);
-        bool rShOk = Visible(PDM.PoseLandmarkIndex.RightShoulder);
+        _calibShoulderWidth = Mathf.Abs(Get(12).x - Get(11).x);
+        _calibShoulderY     = (Get(11).y + Get(12).y) * 0.5f;
+        _charOrigin         = characterRoot != null
+                            ? characterRoot.position
+                            : transform.position;
 
-        if (rightShoulder != null && rShOk)
-        {
-            bool lHipOk = Visible(PDM.PoseLandmarkIndex.LeftHip);
-            bool rHipOk = Visible(PDM.PoseLandmarkIndex.RightHip);
+        _rHandSmooth = LandmarkToWorld(Get(16));
+        _lHandSmooth = LandmarkToWorld(Get(15));
 
-            if (lHipOk && rHipOk)
-            {
-                float hipY      = (PDM.LeftHip.y + PDM.RightHip.y) * 0.5f;
-                float rShY      = PDM.RightShoulder.y;
-                // Smaller diff = shoulders raised (shrug)
-                float shrug     = Mathf.Clamp((0.35f - (hipY - rShY)) * shoulderShrug, -10f, 20f);
-                _rShrug         = Lerp(_rShrug, shrug);
-                rightShoulder.localRotation = _restRightShoulder * Quaternion.Euler(_rShrug, 0, 0);
-            }
-        }
-
-        if (leftShoulder != null && lShOk)
-        {
-            bool lHipOk = Visible(PDM.PoseLandmarkIndex.LeftHip);
-            bool rHipOk = Visible(PDM.PoseLandmarkIndex.RightHip);
-
-            if (lHipOk && rHipOk)
-            {
-                float hipY      = (PDM.LeftHip.y + PDM.RightHip.y) * 0.5f;
-                float lShY      = PDM.LeftShoulder.y;
-                float shrug     = Mathf.Clamp((0.35f - (hipY - lShY)) * shoulderShrug, -10f, 20f);
-                _lShrug         = Lerp(_lShrug, shrug);
-                leftShoulder.localRotation = _restLeftShoulder * Quaternion.Euler(_lShrug, 0, 0);
-            }
-        }
+        _calibrated = true;
+        Debug.Log($"[PoseReplicator] Calibrated! ShoulderW={_calibShoulderWidth:F3} ShoulderY={_calibShoulderY:F3}");
     }
 
-    // ── UPPER ARMS ──────────────────────────────────────────
+    // ── IK TARGET MOVEMENT ───────────────────────────────────
 
-    void UpdateUpperArms()
+    void MoveIKTargets()
     {
-        // RIGHT
-        if (rightUpperArm != null)
+        if (rightHandTarget != null && OK(16) && InFrame(Get(16)))
         {
-            float raise = 0, side = 0, twist = 0;
-            bool rSh = Visible(PDM.PoseLandmarkIndex.RightShoulder);
-            bool rEl = Visible(PDM.PoseLandmarkIndex.RightElbow);
-
-            if (rSh && rEl)
-            {
-                var sh = PDM.RightShoulder;
-                var el = PDM.RightElbow;
-
-                if (InFrame(el))
-                {
-                    // Raise: elbow Y above shoulder Y
-                    float rawRaise = sh.y - el.y;
-                    if (Mathf.Abs(rawRaise) > deadZone)
-                        raise = Mathf.Clamp(rawRaise * armRaiseScale, 0f, 175f);
-
-                    // Side: elbow X distance from shoulder
-                    float rawSide = sh.x - el.x;
-                    if (Mathf.Abs(rawSide) > deadZone)
-                        side = Mathf.Clamp(rawSide * armSideScale, -70f, 70f);
-
-                    // Twist: use wrist to determine forearm plane rotation
-                    bool rWr = Visible(PDM.PoseLandmarkIndex.RightWrist);
-                    if (rWr && InFrame(PDM.RightWrist))
-                    {
-                        float wristElbowDY = el.y - PDM.RightWrist.y;
-                        float wristElbowDX = el.x - PDM.RightWrist.x;
-                        twist = Mathf.Clamp(
-                            Mathf.Atan2(wristElbowDY, wristElbowDX) * Mathf.Rad2Deg * 0.3f,
-                            -45f, 45f);
-                    }
-                }
-            }
-
-            _rRaise = Lerp(_rRaise, raise);
-            _rSide  = Lerp(_rSide,  side);
-            _rTwist = Lerp(_rTwist, twist);
-
-            rightUpperArm.localRotation = _restRightArm
-                * Quaternion.Euler(_rSide, _rTwist, -_rRaise);
+            Vector3 targetWorld = LandmarkToWorld(Get(16));
+            _rHandSmooth        = Vector3.Lerp(_rHandSmooth, targetWorld, Time.deltaTime * smoothSpeed);
+            rightHandTarget.position = _rHandSmooth;
         }
 
-        // LEFT
-        if (leftUpperArm != null)
+        if (leftHandTarget != null && OK(15) && InFrame(Get(15)))
         {
-            float raise = 0, side = 0, twist = 0;
-            bool lSh = Visible(PDM.PoseLandmarkIndex.LeftShoulder);
-            bool lEl = Visible(PDM.PoseLandmarkIndex.LeftElbow);
+            Vector3 targetWorld = LandmarkToWorld(Get(15));
+            _lHandSmooth        = Vector3.Lerp(_lHandSmooth, targetWorld, Time.deltaTime * smoothSpeed);
+            leftHandTarget.position = _lHandSmooth;
+        }
 
-            if (lSh && lEl)
-            {
-                var sh = PDM.LeftShoulder;
-                var el = PDM.LeftElbow;
+        if (rightElbowHint != null && OK(14) && InFrame(Get(14)))
+        {
+            Vector3 elbowWorld  = LandmarkToWorld(Get(14));
+            elbowWorld         += (characterRoot != null ? characterRoot.forward : Vector3.forward) * -0.3f;
+            _rElbowSmooth       = Vector3.Lerp(_rElbowSmooth, elbowWorld, Time.deltaTime * smoothSpeed);
+            rightElbowHint.position = _rElbowSmooth;
+        }
 
-                if (InFrame(el))
-                {
-                    float rawRaise = sh.y - el.y;
-                    if (Mathf.Abs(rawRaise) > deadZone)
-                        raise = Mathf.Clamp(rawRaise * armRaiseScale, 0f, 175f);
-
-                    float rawSide = el.x - sh.x;
-                    if (Mathf.Abs(rawSide) > deadZone)
-                        side = Mathf.Clamp(rawSide * armSideScale, -70f, 70f);
-
-                    bool lWr = Visible(PDM.PoseLandmarkIndex.LeftWrist);
-                    if (lWr && InFrame(PDM.LeftWrist))
-                    {
-                        float wristElbowDY = el.y - PDM.LeftWrist.y;
-                        float wristElbowDX = PDM.LeftWrist.x - el.x;
-                        twist = Mathf.Clamp(
-                            Mathf.Atan2(wristElbowDY, wristElbowDX) * Mathf.Rad2Deg * 0.3f,
-                            -45f, 45f);
-                    }
-                }
-            }
-
-            _lRaise = Lerp(_lRaise, raise);
-            _lSide  = Lerp(_lSide,  side);
-            _lTwist = Lerp(_lTwist, twist);
-
-            leftUpperArm.localRotation = _restLeftArm
-                * Quaternion.Euler(-_lSide, -_lTwist, _lRaise);
+        if (leftElbowHint != null && OK(13) && InFrame(Get(13)))
+        {
+            Vector3 elbowWorld  = LandmarkToWorld(Get(13));
+            elbowWorld         += (characterRoot != null ? characterRoot.forward : Vector3.forward) * -0.3f;
+            _lElbowSmooth       = Vector3.Lerp(_lElbowSmooth, elbowWorld, Time.deltaTime * smoothSpeed);
+            leftElbowHint.position = _lElbowSmooth;
         }
     }
 
-    // ── FOREARMS (elbow bend) ────────────────────────────────
+    // ── LANDMARK → WORLD SPACE CONVERSION ────────────────────
 
-    void UpdateForearms()
+    Vector3 LandmarkToWorld(Vector2 lm)
     {
-        // RIGHT forearm — elbow bend from shoulder→elbow→wrist angle
-        if (rightForeArm != null)
-        {
-            float bend = 0;
-            bool rSh = Visible(PDM.PoseLandmarkIndex.RightShoulder);
-            bool rEl = Visible(PDM.PoseLandmarkIndex.RightElbow);
-            bool rWr = Visible(PDM.PoseLandmarkIndex.RightWrist);
+        // Flip X for front-facing camera mirror
+        float nx = 1f - lm.x;
+        float ny = lm.y;
 
-            if (rSh && rEl && rWr && InFrame(PDM.RightElbow) && InFrame(PDM.RightWrist))
-            {
-                // Angle at elbow between upper arm and forearm vectors
-                Vector2 toShoulder = PDM.RightShoulder - PDM.RightElbow;
-                Vector2 toWrist    = PDM.RightWrist    - PDM.RightElbow;
-                float angle        = Vector2.Angle(toShoulder, toWrist); // 0=fully bent, 180=straight
-                // Convert: 180=straight arm(0 bend), 90=right angle(90 bend), 30=fully bent
-                bend = Mathf.Clamp((180f - angle) * 0.85f, 0f, 145f);
-            }
+        float scale  = ikScale / Mathf.Max(_calibShoulderWidth, 0.1f);
+        float worldX = (nx - 0.5f) * scale * _calibShoulderWidth;
+        float worldY = (_calibShoulderY - ny) * scale * _calibShoulderWidth + 1.4f;
+        float worldZ = 0f;
 
-            _rElbow = Lerp(_rElbow, bend);
-            rightForeArm.localRotation = _restRightFore * Quaternion.Euler(0, -_rElbow, 0);
-        }
+        if (characterRoot != null)
+            return characterRoot.TransformPoint(new Vector3(worldX, worldY, worldZ));
 
-        // LEFT forearm
-        if (leftForeArm != null)
-        {
-            float bend = 0;
-            bool lSh = Visible(PDM.PoseLandmarkIndex.LeftShoulder);
-            bool lEl = Visible(PDM.PoseLandmarkIndex.LeftElbow);
-            bool lWr = Visible(PDM.PoseLandmarkIndex.LeftWrist);
-
-            if (lSh && lEl && lWr && InFrame(PDM.LeftElbow) && InFrame(PDM.LeftWrist))
-            {
-                Vector2 toShoulder = PDM.LeftShoulder - PDM.LeftElbow;
-                Vector2 toWrist    = PDM.LeftWrist    - PDM.LeftElbow;
-                float angle        = Vector2.Angle(toShoulder, toWrist);
-                bend               = Mathf.Clamp((180f - angle) * 0.85f, 0f, 145f);
-            }
-
-            _lElbow = Lerp(_lElbow, bend);
-            leftForeArm.localRotation = _restLeftFore * Quaternion.Euler(0, _lElbow, 0);
-        }
+        return _charOrigin + new Vector3(worldX, worldY, worldZ);
     }
 
-    // ── SPINE + CHEST ────────────────────────────────────────
+    // ── HEAD ROTATION ─────────────────────────────────────────
 
-    void UpdateSpineAndChest()
+    void RotateHead()
     {
-        bool lSh = Visible(PDM.PoseLandmarkIndex.LeftShoulder);
-        bool rSh = Visible(PDM.PoseLandmarkIndex.RightShoulder);
-        bool lHp = Visible(PDM.PoseLandmarkIndex.LeftHip);
-        bool rHp = Visible(PDM.PoseLandmarkIndex.RightHip);
+        if (!OK(0)) return;
 
-        if (!lSh || !rSh) return;
+        var   nose  = Get(0);
+        float shCX  = (OK(11) && OK(12)) ? (Get(11).x + Get(12).x) * 0.5f : 0.5f;
+        float shCY  = (OK(11) && OK(12)) ? (Get(11).y + Get(12).y) * 0.5f : _calibShoulderY;
 
-        // LEAN side to side — from shoulder midpoint vs hip midpoint
-        float shCX = (PDM.LeftShoulder.x + PDM.RightShoulder.x) * 0.5f;
-        float hipCX = 0.5f;
-        if (lHp && rHp) hipCX = (PDM.LeftHip.x + PDM.RightHip.x) * 0.5f;
+        float turn = (shCX - nose.x) * 60f;
+        float nod  = Mathf.Clamp((shCY - nose.y - 0.17f) * 40f, -25f, 20f);
 
-        float leanRaw = (shCX - hipCX) * leanScale;
-        _lean = Lerp(_lean, leanRaw);
-
-        // TWIST — shoulder width perspective change reveals twist
-        // When twisting, one shoulder appears closer (smaller X gap)
-        float shWidth = Mathf.Abs(PDM.RightShoulder.x - PDM.LeftShoulder.x);
-        // baseline shoulder width ~0.25. Deviation from that = twist
-        float twistRaw = (0.25f - shWidth) * twistScale * 100f;
-        twistRaw = Mathf.Clamp(twistRaw, -25f, 25f);
-        _bodyTwist = Lerp(_bodyTwist, twistRaw);
-
-        if (spine != null)
-            spine.localRotation = _restSpine
-                * Quaternion.Euler(0f, _bodyTwist * 0.4f, -_lean * 0.5f);
-
-        if (chest != null)
-            chest.localRotation = _restChest
-                * Quaternion.Euler(0f, _bodyTwist * 0.6f, -_lean * 0.5f);
-    }
-
-    // ── NECK + HEAD ──────────────────────────────────────────
-
-    void UpdateNeckAndHead()
-    {
-        if (!Visible(PDM.PoseLandmarkIndex.Nose)) return;
-
-        var nose = PDM.Nose;
-        bool lSh = Visible(PDM.PoseLandmarkIndex.LeftShoulder);
-        bool rSh = Visible(PDM.PoseLandmarkIndex.RightShoulder);
-
-        float shCX = 0.5f;
-        float shCY = 0.35f;
-        if (lSh && rSh)
-        {
-            shCX = (PDM.LeftShoulder.x + PDM.RightShoulder.x) * 0.5f;
-            shCY = (PDM.LeftShoulder.y + PDM.RightShoulder.y) * 0.5f;
-        }
-
-        // Turn: nose X vs shoulder center X (mirrored for front cam)
-        float turnRaw = (shCX - nose.x) * headTurnScale;
-        turnRaw       = Mathf.Clamp(turnRaw, -50f, 50f);
-
-        // Nod: nose Y vs shoulder Y — typical gap when looking forward ~0.2
-        float nodRaw  = Mathf.Clamp((shCY - nose.y - 0.20f) * headNodScale, -30f, 25f);
-
-        _hTurn = Lerp(_hTurn, turnRaw);
-        _hNod  = Lerp(_hNod,  nodRaw);
-        _nTurn = Lerp(_nTurn, turnRaw * 0.4f); // neck takes 40% of head turn
+        _hTurn = Mathf.Lerp(_hTurn, turn, Time.deltaTime * headSmooth);
+        _hNod  = Mathf.Lerp(_hNod,  nod,  Time.deltaTime * headSmooth);
 
         if (neck != null)
-            neck.localRotation = _restNeck
-                * Quaternion.Euler(_hNod * 0.3f, _nTurn, 0f);
-
+            neck.localRotation = _restNeck * Quaternion.Euler(_hNod * 0.4f, _hTurn * 0.4f, 0f);
         if (head != null)
-            head.localRotation = _restHead
-                * Quaternion.Euler(_hNod * 0.7f, _hTurn * 0.6f, 0f);
+            head.localRotation = _restHead * Quaternion.Euler(_hNod * 0.6f, _hTurn * 0.6f, 0f);
     }
 
-    // ── HELPERS ──────────────────────────────────────────────
+    // ── SPINE LEAN ────────────────────────────────────────────
 
-    float Lerp(float current, float target) =>
-        Mathf.Lerp(current, target, Time.deltaTime * smoothSpeed);
-
-    bool InFrame(Vector2 p) => p.x > 0f && p.x < 1f && p.y > 0f && p.y < 1f;
-
-    bool Visible(PoseDetectionManager.PoseLandmarkIndex idx)
+    void RotateSpine()
     {
-        int i = (int)idx;
-        return PoseDetectionManager.CurrentVisibility[i] >= 0.35f
-            && PoseDetectionManager.CurrentPresence[i]   >= 0.35f;
+        if (!OK(11) || !OK(12)) return;
+
+        float shCX  = (Get(11).x + Get(12).x) * 0.5f;
+        float hipCX = (OK(23) && OK(24)) ? (Get(23).x + Get(24).x) * 0.5f : 0.5f;
+
+        float lean  = (shCX - hipCX) * 20f;
+        _lean       = Mathf.Lerp(_lean, lean, Time.deltaTime * smoothSpeed);
+
+        if (spine != null)
+            spine.localRotation = _restSpine * Quaternion.Euler(0f, 0f, -_lean);
     }
 
-    // Shorthand alias
-    private static class PDM
+    // ── HELPERS ───────────────────────────────────────────────
+
+    void CaptureRest()
     {
-        public static Vector2 LeftShoulder  => PoseDetectionManager.LeftShoulder;
-        public static Vector2 RightShoulder => PoseDetectionManager.RightShoulder;
-        public static Vector2 LeftHip       => PoseDetectionManager.LeftHip;
-        public static Vector2 RightHip      => PoseDetectionManager.RightHip;
-        public static Vector2 LeftWrist     => PoseDetectionManager.LeftWrist;
-        public static Vector2 RightWrist    => PoseDetectionManager.RightWrist;
-        public static Vector2 Nose          => PoseDetectionManager.Nose;
-
-        public static Vector2 LeftElbow =>
-            PoseDetectionManager.GetLandmark(PoseLandmarkIndex.LeftElbow);
-        public static Vector2 RightElbow =>
-            PoseDetectionManager.GetLandmark(PoseLandmarkIndex.RightElbow);
-
-        public static class PoseLandmarkIndex
-        {
-            public const PoseDetectionManager.PoseLandmarkIndex Nose = PoseDetectionManager.PoseLandmarkIndex.Nose;
-            public const PoseDetectionManager.PoseLandmarkIndex LeftShoulder = PoseDetectionManager.PoseLandmarkIndex.LeftShoulder;
-            public const PoseDetectionManager.PoseLandmarkIndex RightShoulder = PoseDetectionManager.PoseLandmarkIndex.RightShoulder;
-            public const PoseDetectionManager.PoseLandmarkIndex LeftElbow = PoseDetectionManager.PoseLandmarkIndex.LeftElbow;
-            public const PoseDetectionManager.PoseLandmarkIndex RightElbow = PoseDetectionManager.PoseLandmarkIndex.RightElbow;
-            public const PoseDetectionManager.PoseLandmarkIndex LeftWrist = PoseDetectionManager.PoseLandmarkIndex.LeftWrist;
-            public const PoseDetectionManager.PoseLandmarkIndex RightWrist = PoseDetectionManager.PoseLandmarkIndex.RightWrist;
-            public const PoseDetectionManager.PoseLandmarkIndex LeftHip = PoseDetectionManager.PoseLandmarkIndex.LeftHip;
-            public const PoseDetectionManager.PoseLandmarkIndex RightHip = PoseDetectionManager.PoseLandmarkIndex.RightHip;
-        }
+        if (spine) _restSpine = spine.localRotation;
+        if (head)  _restHead  = head.localRotation;
+        if (neck)  _restNeck  = neck.localRotation;
     }
+
+    bool IsGoodFrame() =>
+        OK(11) && OK(12) && OK(15) && OK(16) && _calibShoulderWidth < 0.01f;
+
+    bool OK(int i) =>
+        i < PoseDetectionManager.CurrentVisibility.Length &&
+        PoseDetectionManager.CurrentVisibility[i] >= 0.4f &&
+        PoseDetectionManager.CurrentPresence[i]   >= 0.4f;
+
+    Vector2 Get(int i) => PoseDetectionManager.CurrentLandmarks[i];
+
+    bool InFrame(Vector2 p) =>
+        p.x > 0.02f && p.x < 0.98f && p.y > 0.02f && p.y < 0.98f;
 }
